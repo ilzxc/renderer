@@ -19,7 +19,18 @@ boolean inTriangle(Triangle t, Vector p)
   return true;
 }
 
-void fillTriangle(Triangle t, color col)
+Vector barycentric(Vector A, Vector B, Vector C, Vector P)
+{
+  Vector s0 = new Vector(C.x - A.x, B.x - A.x, A.x - P.x);
+  Vector s1 = new Vector(C.y - A.y, B.y - A.y, A.y - P.y);
+  Vector u = s0.cross(s1);
+  if (abs(u.z) > 1e-2) // u.z should be an integer value, if it is zero, then ABC is degenerate
+    return new Vector(1.f - (u.x + u.y) / u.z, u.y / u.z, u.x / u.z);
+  return new Vector(-1, 1, 1); // negative coordinates will be thrown away by the rasterizer
+  
+}
+
+void fillTriangle(Triangle t, color col, float[] zbuffer)
 {
   BBox bbox = BoundingBox(t);  
   Vector iter = new Vector(0, 0);
@@ -27,8 +38,20 @@ void fillTriangle(Triangle t, color col)
   {
     for (iter.y = bbox.topLeft.y; iter.y <= bbox.botRight.y; ++iter.y) 
     {
-      if (inTriangle(t, iter))
-        set(int(iter.x), int(iter.y), col); 
+      Vector bc_screen = barycentric(t.p0, t.p1, t.p2, iter);
+      if (bc_screen.x < 0 || bc_screen.y < 0 || bc_screen.z < 0) continue;
+      iter.z = 0;
+      iter.z += t.p0.z * bc_screen.x;
+      iter.z += t.p1.z * bc_screen.y;
+      iter.z += t.p2.z * bc_screen.z;
+      int idx = int(iter.x) + int(iter.y * width);
+      if (idx >= zbuffer.length) continue;
+      if (zbuffer[idx] < iter.z) {
+        if (inTriangle(t, iter)) {
+          zbuffer[idx] = iter.z;
+          set(int(iter.x), int(iter.y), col);
+        }
+      } 
     }
   }
 }
@@ -37,16 +60,25 @@ ObjLoader test;
 Vector[] points = new Vector[3];
 Vector lightDir;
 
+float[] zbuffer;
+void clearout(float[] zbuf) {
+  for (int i = 0; i < zbuf.length - 1; ++i)
+    zbuf[i] = -Float.MAX_VALUE;
+}
+
 void setup()
 {  
   size(850, 850);
   background(0);
   //noLoop();
   
+  zbuffer = new float[width * height];
+  clearout(zbuffer);
+  
   lightDir = new Vector(0.2f, -0.3f, 3.f);
   lightDir = lightDir.normalize();
   
-  test = new ObjLoader(loadStrings("diablo3_pose.obj"));
+  test = new ObjLoader(loadStrings("african_head.obj"));
   println("done loading file");
   
   points[0] = new Vector(0, 0);
@@ -64,7 +96,7 @@ void setup()
     float intensity = n.dot(lightDir) * 0.1f;
     if (intensity > 0) {
       Triangle tr = new Triangle(points[0], points[1], points[2]);
-      fillTriangle(tr, color(int(intensity * 255)));
+      fillTriangle(tr, color(int(intensity * 255)), zbuffer);
     }
   }
 }
@@ -75,6 +107,7 @@ void draw()
   lightDir.z = 3 * cos(millis() * .003f);
   lightDir.normalize();
   background(0);
+  clearout(zbuffer);
   
   for (Face t : test.faces) {
     for (int i = 0; i < 3; ++i) {
@@ -87,7 +120,7 @@ void draw()
     float intensity = n.dot(lightDir);
     if (intensity > 0) {
       Triangle tr = new Triangle(points[0], points[1], points[2]);
-      fillTriangle(tr, color(intensity * 64));
+      fillTriangle(tr, color(intensity * 64), zbuffer);
     }
   }
 }

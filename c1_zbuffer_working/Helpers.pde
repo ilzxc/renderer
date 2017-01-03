@@ -25,7 +25,7 @@ BBox BoundingBox(Triangle t) {
 class Vector
 {
   public float x, y, z;
-  Vector(int x, int y) { this.x = float(x); this.y = float(y); }
+  Vector(int x, int y) { this.x = float(x); this.y = float(y); this.z = 0f; }
   Vector(float x, float y) { this.x = x; this.y = y; }
   Vector(float x, float y, float z) {
     this.x = x;
