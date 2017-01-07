@@ -21,12 +21,29 @@ boolean inTriangle(Triangle t, Vector p)
 
 Vector barycentric(Vector A, Vector B, Vector C, Vector P)
 {
-  Vector s0 = new Vector(C.x - A.x, B.x - A.x, A.x - P.x);
-  Vector s1 = new Vector(C.y - A.y, B.y - A.y, A.y - P.y);
-  Vector u = s0.cross(s1);
-  if (abs(u.z) > 1e-2) // u.z should be an integer value, if it is zero, then ABC is degenerate
-    return new Vector(1.f - (u.x + u.y) / u.z, u.y / u.z, u.x / u.z);
-  return new Vector(-1, 1, 1); // negative coordinates will be thrown away by the rasterizer
+  Vector v0 = new Vector(B.x - A.x, B.y - A.y, B.z - A.z );
+  Vector v1 = new Vector(C.x - A.x, C.y - A.y, C.z - A.z );
+  Vector v2 = new Vector(P.x - A.x, P.y - A.y, P.z - A.z );
+  float d00 = v0.dot(v0);
+  float d01 = v0.dot(v1);
+  float d11 = v1.dot(v1);
+  float d20 = v2.dot(v0);
+  float d21 = v2.dot(v1);
+  
+  float denom = d00 * d11 - d01 * d01;
+  float v = (d11 * d20 - d01 * d21 ) / denom;
+  float w = (d00 * d21 - d01 * d20 ) / denom;
+  float u = 1.0f - v - w;
+  
+  if (abs(u) > 1e-2) return new Vector(v, w, u);
+  return new Vector(-1, 1, 1);
+  
+  //Vector s0 = new Vector(C.x - A.x, B.x - A.x, A.x - P.x);
+  //Vector s1 = new Vector(C.y - A.y, B.y - A.y, A.y - P.y);
+  //Vector u = s1.cross(s0);
+  //if (abs(u.z) > 1e-2) // u.z should be an integer value, if it is zero, then ABC is degenerate
+  //  return new Vector(1.f - (u.x + u.y) / u.z, u.y / u.z, u.x / u.z);
+  //return new Vector(-1, 1, 1); // negative coordinates will be thrown away by the rasterizer
   
 }
 
@@ -68,7 +85,7 @@ void clearout(float[] zbuf) {
 
 void setup()
 {  
-  size(850, 850);
+  size(750, 750);
   background(0);
   //noLoop();
   
@@ -118,8 +135,9 @@ void draw()
     }
     Vector n = ((points[2].sub(points[0])).cross(points[1].sub(points[0]))).normalize();
     float intensity = n.dot(lightDir);
+    
+    Triangle tr = new Triangle(points[0], points[1], points[2]);
     if (intensity > 0) {
-      Triangle tr = new Triangle(points[0], points[1], points[2]);
       fillTriangle(tr, color(intensity * 64), zbuffer);
     }
   }
